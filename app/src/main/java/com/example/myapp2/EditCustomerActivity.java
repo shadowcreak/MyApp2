@@ -16,6 +16,7 @@ public class EditCustomerActivity extends AppCompatActivity {
     private Spinner contractorSpinner;
     private Button saveButton;
     private RecyclerView worklogsRecyclerView;
+    private WorklogAdapter worklogAdapter;
     private DatabaseHelper databaseHelper;
     private int customerId = -1;
 
@@ -32,7 +33,7 @@ public class EditCustomerActivity extends AppCompatActivity {
         editNotes = findViewById(R.id.editNotes);
         contractorSpinner = findViewById(R.id.contractorSpinner);
         saveButton = findViewById(R.id.saveButton);
-        worklogsRecyclerView = findViewById(R.id.worklogsRecyclerView); // Updated to RecyclerView
+        worklogsRecyclerView = findViewById(R.id.worklogsRecyclerView);
 
         worklogsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
@@ -55,9 +56,8 @@ public class EditCustomerActivity extends AppCompatActivity {
                 }
             }
 
-            // Set up worklog RecyclerView
             List<Worklog> worklogs = databaseHelper.getWorklogsByCustomer(customerId);
-            WorklogAdapter worklogAdapter = new WorklogAdapter(this, worklogs, databaseHelper);
+            worklogAdapter = new WorklogAdapter(this, worklogs, databaseHelper); // Added databaseHelper
             worklogsRecyclerView.setAdapter(worklogAdapter);
         }
 
