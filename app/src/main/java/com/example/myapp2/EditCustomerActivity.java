@@ -1,132 +1,83 @@
 package com.example.myapp2;
 
-import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Spinner;
-import android.widget.Toast;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import java.util.ArrayList;
+import com.google.android.material.textfield.TextInputEditText;
+import java.util.List;
 
 public class EditCustomerActivity extends AppCompatActivity {
-    private static final String TAG = "EditCustomerActivity";
-    private EditText editTextName, editTextAddress;
-    private Spinner spinnerContractor;
-    private Button buttonSave, buttonDelete;
-    private DatabaseHelper dbHelper;
-    private int customerId = -1;
-    private ArrayList<Contractor> contractors;
+    private TextInputEditText editName, editAddress, editRate, editNotes;  // Added editNotes
+    private Spinner contractorSpinner;
+    private Button saveButton;
+    private DatabaseHelper databaseHelper;
+    private int customerId = -1;  // -1 means new customer
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_edit_customer);
 
-        editTextName = findViewById(R.id.editTextName);
-        editTextAddress = findViewById(R.id.editTextAddress);
-        spinnerContractor = findViewById(R.id.spinnerContractor);
-        buttonSave = findViewById(R.id.buttonSave);
-        buttonDelete = findViewById(R.id.buttonDelete);
-        dbHelper = DatabaseHelper.getInstance(this);
+        // Initialize database helper
+        databaseHelper = DatabaseHelper.getInstance(this);
 
-        Intent intent = getIntent();
-        customerId = intent.getIntExtra("CUSTOMER_ID", -1);
+        // Link UI elements
+        editName = findViewById(R.id.editName);
+        editAddress = findViewById(R.id.editAddress);
+        editRate = findViewById(R.id.editRate);
+        editNotes = findViewById(R.id.editNotes);  // New notes field
+        contractorSpinner = findViewById(R.id.contractorSpinner);
+        saveButton = findViewById(R.id.saveButton);
 
-        loadContractors();
-        if (customerId != -1) {
-            loadCustomerData();
-            buttonDelete.setVisibility(View.VISIBLE);
-        } else {
-            buttonDelete.setVisibility(View.GONE);
-        }
-
-        buttonSave.setOnClickListener(v -> saveCustomer());
-        buttonDelete.setOnClickListener(v -> confirmDelete());
-    }
-
-    private void loadContractors() {
-        contractors = dbHelper.getAllContractors();
-        ArrayList<String> contractorNames = new ArrayList<>();
-        contractorNames.add("Direct to Customer");
-        for (Contractor contractor : contractors) {
-            contractorNames.add(contractor.getName());
-        }
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, contractorNames);
+        // Set up contractor spinner
+        List<Contractor> contractors = databaseHelper.getAllContractors();
+        ArrayAdapter<Contractor> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, contractors);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerContractor.setAdapter(adapter);
-    }
+        contractorSpinner.setAdapter(adapter);
 
-    private void loadCustomerData() {
-        Customer customer = dbHelper.getCustomerById(customerId);
-        if (customer != null) {
-            editTextName.setText(customer.getName());
-            editTextAddress.setText(customer.getAddress());
-            int contractorId = customer.getContractorId();
-            if (contractorId == -1) {
-                spinnerContractor.setSelection(0);
-            } else {
-                for (int i = 0; i < contractors.size(); i++) {
-                    if (contractors.get(i).getId() == contractorId) {
-                        spinnerContractor.setSelection(i + 1);
-                        break;
-                    }
+        // Check if editing an existing customer
+        customerId = getIntent().getIntExtra("customerId", -1);
+        if (customerId != -1) {
+            Customer customer = databaseHelper.getCustomerById(customerId);
+            editName.setText(customer.getName());
+            editAddress.setText(customer.getAddress());
+            editRate.setText(String.valueOf(customer.getRate()));
+            editNotes.setText(customer.getNotes());  // Load notes
+            // Set spinner to correct contractor
+            for (int i = 0; i < contractors.size(); i++) {
+                if (contractors.get(i).getId() == customer.getContractorId()) {
+                    contractorSpinner.setSelection(i);
+                    break;
                 }
             }
         }
-    }
 
-    private void saveCustomer() {
-        String name = editTextName.getText().toString().trim();
-        String address = editTextAddress.getText().toString().trim();
-        int selectedPosition = spinnerContractor.getSelectedItemPosition();
-        int contractorId = (selectedPosition == 0) ? -1 : contractors.get(selectedPosition - 1).getId();
+        // Save button click handler
+        saveButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Get values from fields
+                String name = editName.getText().toString();
+                String address = editAddress.getText().toString();
+                double rate = Double.parseDouble(editRate.getText().toString());
+                String notes = editNotes.getText().toString();  // Get notes
+                Contractor selectedContractor = (Contractor) contractorSpinner.getSelectedItem();
+                int contractorId = selectedContractor.getId();
 
-        if (name.isEmpty()) {
-            Toast.makeText(this, "Please enter a name", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Use existing rate if editing, 0.0 if new
-        double rate = 0.0;
-        if (customerId != -1) {
-            Customer existingCustomer = dbHelper.getCustomerById(customerId);
-            if (existingCustomer != null) {
-                rate = existingCustomer.getRate();
+                if (customerId == -1) {
+                    // Add new customer
+                    Customer newCustomer = new Customer(0, name, address, rate, contractorId, notes);
+                    databaseHelper.addCustomer(newCustomer);
+                } else {
+                    // Update existing customer
+                    Customer updatedCustomer = new Customer(customerId, name, address, rate, contractorId, notes);
+                    databaseHelper.updateCustomer(updatedCustomer);
+                }
+                finish();  // Close activity
             }
-        }
-        Customer customer = new Customer(customerId, name, address, rate, contractorId);
-
-        if (customerId == -1) {
-            dbHelper.addCustomer(customer);
-            Log.d(TAG, "Added new customer: " + name);
-        } else {
-            dbHelper.updateCustomer(customer);
-            Log.d(TAG, "Updated customer: " + name);
-        }
-        setResult(RESULT_OK);
-        finish();
-    }
-
-    private void confirmDelete() {
-        Customer customer = dbHelper.getCustomerById(customerId);
-        if (customer != null) {
-            new AlertDialog.Builder(this)
-                    .setTitle("Delete Customer")
-                    .setMessage("Are you sure you want to delete " + customer.getName() + "? This will also delete all associated worklogs.")
-                    .setPositiveButton("Yes", (dialog, which) -> {
-                        dbHelper.deleteCustomer(customerId);
-                        Toast.makeText(this, "Deleted " + customer.getName(), Toast.LENGTH_SHORT).show();
-                        setResult(RESULT_OK);
-                        finish();
-                    })
-                    .setNegativeButton("No", null)
-                    .setCancelable(false)
-                    .show();
-        }
+        });
     }
 }

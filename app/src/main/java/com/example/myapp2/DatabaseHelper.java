@@ -10,7 +10,7 @@ import java.util.ArrayList;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "CustomerDB";
-    private static final int DATABASE_VERSION = 6;  // Incremented to 6 for the new 'notes' column
+    private static final int DATABASE_VERSION = 6;  // Incremented for 'notes' column
 
     // Customer table
     private static final String TABLE_CUSTOMERS = "customers";
@@ -19,7 +19,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_ADDRESS = "address";
     private static final String COLUMN_RATE = "rate";
     private static final String COLUMN_CONTRACTOR_ID = "contractor_id";
-    private static final String COLUMN_NOTES = "notes";  // New column for customer notes
+    private static final String COLUMN_NOTES = "notes";  // New column for notes
 
     // Contractor table
     private static final String TABLE_CONTRACTORS = "contractors";
@@ -47,7 +47,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        // Create customers table with the new 'notes' column
         String CREATE_CUSTOMERS_TABLE = "CREATE TABLE " + TABLE_CUSTOMERS + "("
                 + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + COLUMN_NAME + " TEXT,"
@@ -57,13 +56,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + COLUMN_NOTES + " TEXT)";  // Added notes column
         db.execSQL(CREATE_CUSTOMERS_TABLE);
 
-        // Create contractors table
         String CREATE_CONTRACTORS_TABLE = "CREATE TABLE " + TABLE_CONTRACTORS + "("
                 + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + COLUMN_NAME + " TEXT)";
         db.execSQL(CREATE_CONTRACTORS_TABLE);
 
-        // Create worklogs table
         String CREATE_WORKLOGS_TABLE = "CREATE TABLE " + TABLE_WORKLOGS + "("
                 + COLUMN_WORKLOG_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + COLUMN_CUSTOMER_ID + " INTEGER,"
@@ -75,14 +72,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Add the 'notes' column if upgrading from a version before 6
         if (oldVersion < 6) {
             db.execSQL("ALTER TABLE " + TABLE_CUSTOMERS + " ADD COLUMN " + COLUMN_NOTES + " TEXT");
         }
-        // You can add more upgrade steps for future versions here
     }
 
-    // Add a new customer, including notes
     public void addCustomer(Customer customer) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -90,7 +84,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_ADDRESS, customer.getAddress());
         values.put(COLUMN_RATE, customer.getRate());
         values.put(COLUMN_CONTRACTOR_ID, customer.getContractorId());
-        values.put(COLUMN_NOTES, customer.getNotes());  // Add notes
+        values.put(COLUMN_NOTES, customer.getNotes());
         long newRowId = db.insert(TABLE_CUSTOMERS, null, values);
         if (newRowId != -1) {
             customer.setId((int) newRowId);
@@ -98,7 +92,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.close();
     }
 
-    // Update an existing customer, including notes
     public void updateCustomer(Customer customer) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -106,12 +99,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_ADDRESS, customer.getAddress());
         values.put(COLUMN_RATE, customer.getRate());
         values.put(COLUMN_CONTRACTOR_ID, customer.getContractorId());
-        values.put(COLUMN_NOTES, customer.getNotes());  // Update notes
+        values.put(COLUMN_NOTES, customer.getNotes());
         db.update(TABLE_CUSTOMERS, values, COLUMN_ID + "=?", new String[]{String.valueOf(customer.getId())});
         db.close();
     }
 
-    // Delete a customer and their worklogs
     public void deleteCustomer(int customerId) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_WORKLOGS, COLUMN_CUSTOMER_ID + "=?", new String[]{String.valueOf(customerId)});
@@ -119,7 +111,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.close();
     }
 
-    // Get a customer by ID, including notes
     public Customer getCustomerById(int id) {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.query(TABLE_CUSTOMERS, new String[]{COLUMN_ID, COLUMN_NAME, COLUMN_ADDRESS, COLUMN_RATE, COLUMN_CONTRACTOR_ID, COLUMN_NOTES},
@@ -131,7 +122,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ADDRESS)),
                     cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_RATE)),
                     cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_CONTRACTOR_ID)),
-                    cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NOTES))  // Get notes
+                    cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NOTES))
             );
             cursor.close();
             return customer;
@@ -140,7 +131,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return null;
     }
 
-    // Get all customers, including notes
     public ArrayList<Customer> getAllCustomers() {
         ArrayList<Customer> customers = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
@@ -153,7 +143,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ADDRESS)),
                         cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_RATE)),
                         cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_CONTRACTOR_ID)),
-                        cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NOTES))  // Get notes
+                        cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NOTES))
                 ));
             } while (cursor.moveToNext());
         }
@@ -161,7 +151,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return customers;
     }
 
-    // Get customers by contractor, including notes
     public ArrayList<Customer> getCustomersByContractor(int contractorId) {
         ArrayList<Customer> customers = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
@@ -175,7 +164,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_ADDRESS)),
                         cursor.getDouble(cursor.getColumnIndexOrThrow(COLUMN_RATE)),
                         cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_CONTRACTOR_ID)),
-                        cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NOTES))  // Get notes
+                        cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NOTES))
                 ));
             } while (cursor.moveToNext());
         }
@@ -183,7 +172,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return customers;
     }
 
-    // Other methods remain unchanged
     public ArrayList<Contractor> getAllContractors() {
         ArrayList<Contractor> contractors = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
@@ -253,3 +241,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             do {
                 Long clockOut = cursor.isNull(cursor.getColumnIndexOrThrow(COLUMN_CLOCK_OUT)) ? null : cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_CLOCK_OUT));
                 worklogs.add(new Worklog(
+                        cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_WORKLOG_ID)),
+                        cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_CUSTOMER_ID)),
+                        cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_DESCRIPTION)),
+                        cursor.getLong(cursor.getColumnIndexOrThrow(COLUMN_CLOCK_IN)),
+                        clockOut
+                ));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        db.close();
+        return worklogs;
+    }
+}
