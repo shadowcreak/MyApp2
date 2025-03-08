@@ -1,59 +1,85 @@
 package com.example.myapp2;
 
 import android.os.Bundle;
-import android.util.Log;
-import android.widget.TextView;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.Spinner;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import java.util.ArrayList;
+import com.google.android.material.textfield.TextInputEditText;
+import java.util.List;
 
 public class CustomerDetailsActivity extends AppCompatActivity {
-    private static final String TAG = "CustomerDetailsActivity";
-    private TextView textViewName, textViewAddress, textViewRate;
-    private RecyclerView recyclerViewWorklogs;
+    private TextInputEditText editName, editAddress, editRate, editNotes;
+    private Spinner contractorSpinner;
+    private Button saveButton;
+    private RecyclerView worklogsRecyclerView;
     private WorklogAdapter worklogAdapter;
-    private DatabaseHelper dbHelper;
-    private int customerId;
+    private DatabaseHelper databaseHelper;
+    private int customerId = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_customer_details);
+        setContentView(R.layout.activity_edit_customer);
 
-        textViewName = findViewById(R.id.textViewName);
-        textViewAddress = findViewById(R.id.textViewAddress);
-        textViewRate = findViewById(R.id.textViewRate);
-        recyclerViewWorklogs = findViewById(R.id.recyclerViewWorklogs);
-        dbHelper = DatabaseHelper.getInstance(this);
+        databaseHelper = DatabaseHelper.getInstance(this);
 
-        customerId = getIntent().getIntExtra("CUSTOMER_ID", -1);
+        editName = findViewById(R.id.editName);
+        editAddress = findViewById(R.id.editAddress);
+        editRate = findViewById(R.id.editRate);
+        editNotes = findViewById(R.id.editNotes);
+        contractorSpinner = findViewById(R.id.contractorSpinner);
+        saveButton = findViewById(R.id.saveButton);
+        worklogsRecyclerView = findViewById(R.id.worklogsRecyclerView);
+
+        worklogsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        List<Contractor> contractors = databaseHelper.getAllContractors();
+        ArrayAdapter<Contractor> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, contractors);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        contractorSpinner.setAdapter(adapter);
+
+        customerId = getIntent().getIntExtra("customerId", -1);
         if (customerId != -1) {
-            loadCustomerDetails();
-        } else {
-            Log.e(TAG, "No customer ID provided");
-            finish();
-        }
-    }
+            Customer customer = databaseHelper.getCustomerById(customerId);
+            editName.setText(customer.getName());
+            editAddress.setText(customer.getAddress());
+            editRate.setText(String.valueOf(customer.getRate()));
+            editNotes.setText(customer.getNotes());
+            for (int i = 0; i < contractors.size(); i++) {
+                if (contractors.get(i).getId() == customer.getContractorId()) {
+                    contractorSpinner.setSelection(i);
+                    break;
+                }
+            }
 
-    private void loadCustomerDetails() {
-        Customer customer = dbHelper.getCustomerById(customerId);
-        if (customer != null) {
-            textViewName.setText(customer.getName());
-            textViewAddress.setText(customer.getAddress());
-            textViewRate.setText(String.valueOf(customer.getRate()));
-            loadWorklogs();
-        } else {
-            Log.e(TAG, "Customer not found for ID: " + customerId);
-            finish();
+            List<Worklog> worklogs = databaseHelper.getWorklogsByCustomer(customerId);
+            worklogAdapter = new WorklogAdapter(this, worklogs, databaseHelper); // Added databaseHelper
+            worklogsRecyclerView.setAdapter(worklogAdapter);
         }
-    }
 
-    private void loadWorklogs() {
-        ArrayList<Worklog> worklogs = dbHelper.getWorklogsByCustomer(customerId);
-        worklogAdapter = new WorklogAdapter(this, worklogs);
-        recyclerViewWorklogs.setLayoutManager(new LinearLayoutManager(this));
-        recyclerViewWorklogs.setAdapter(worklogAdapter);
-        Log.d(TAG, "Loaded " + worklogs.size() + " worklogs for customer ID: " + customerId);
+        saveButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String name = editName.getText().toString();
+                String address = editAddress.getText().toString();
+                double rate = Double.parseDouble(editRate.getText().toString());
+                String notes = editNotes.getText().toString();
+                Contractor selectedContractor = (Contractor) contractorSpinner.getSelectedItem();
+                int contractorId = selectedContractor.getId();
+
+                if (customerId == -1) {
+                    Customer newCustomer = new Customer(0, name, address, rate, contractorId, notes);
+                    databaseHelper.addCustomer(newCustomer);
+                } else {
+                    Customer updatedCustomer = new Customer(customerId, name, address, rate, contractorId, notes);
+                    databaseHelper.updateCustomer(updatedCustomer);
+                }
+                finish();
+            }
+        });
     }
 }

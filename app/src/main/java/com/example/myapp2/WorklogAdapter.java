@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.textfield.TextInputEditText; // Added import
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -52,7 +53,6 @@ public class WorklogAdapter extends RecyclerView.Adapter<WorklogAdapter.WorklogV
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setTitle("Edit Worklog");
 
-        // Create a layout for the dialog
         View dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_edit_worklog, null);
         builder.setView(dialogView);
 
@@ -77,7 +77,7 @@ public class WorklogAdapter extends RecyclerView.Adapter<WorklogAdapter.WorklogV
                 worklog.setClockIn(clockInTime);
                 worklog.setClockOut(clockOutTime == 0 ? null : clockOutTime);
                 databaseHelper.updateWorklog(worklog);
-                notifyItemChanged(position); // Refresh the item
+                notifyItemChanged(position);
             } catch (Exception e) {
                 e.printStackTrace();
             }
