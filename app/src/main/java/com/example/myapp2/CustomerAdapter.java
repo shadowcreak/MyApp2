@@ -1,120 +1,131 @@
 package com.example.myapp2;
 
-import android.content.Context;
-import android.util.Log;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.recyclerview.widget.RecyclerView;
-import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 public class CustomerAdapter extends RecyclerView.Adapter<CustomerAdapter.CustomerViewHolder> {
-    private static final String TAG = "CustomerAdapter";
-    private Context context;
-    private ArrayList<Customer> customers;
-    private DatabaseHelper dbHelper;
+    private List<Customer> customerList;
+    private DatabaseHelper databaseHelper;
 
-    public CustomerAdapter(Context context, ArrayList<Customer> customers) {
-        this.context = context;
-        this.customers = new ArrayList<>(customers);
-        this.dbHelper = DatabaseHelper.getInstance(context);
-        Log.d(TAG, "Adapter initialized, customers size: " + (this.customers != null ? this.customers.size() : 0));
+    public CustomerAdapter(List<Customer> customerList, DatabaseHelper databaseHelper) {
+        this.customerList = customerList;
+        this.databaseHelper = databaseHelper;
     }
 
     @Override
     public CustomerViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(context).inflate(R.layout.customer_item, parent, false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.customer_item, parent, false);
         return new CustomerViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(CustomerViewHolder holder, int position) {
-        Customer customer = customers.get(position);
-        holder.textViewName.setText(customer.getName());
-        holder.textViewAddress.setText(customer.getAddress());
-        Log.d(TAG, "Binding customer at position " + position + ": " + customer.getName());
+        Customer customer = customerList.get(position);
+        holder.customerNameTextView.setText(customer.getName());
 
-        ArrayList<Worklog> worklogs = dbHelper.getWorklogsByCustomer(customer.getId());
-        boolean hasActiveWorklog = false;
-        for (Worklog worklog : worklogs) {
-            if (worklog.getClockOut() == null) {
-                hasActiveWorklog = true;
-                break;
-            }
+        // Check mowing status
+        List<Worklog> worklogs = databaseHelper.getWorklogsByCustomer(customer.getId());
+        boolean mowedThisWeek = isMowedThisWeek(worklogs);
+        holder.mowingStatusImageView.setVisibility(mowedThisWeek ? View.VISIBLE : View.GONE);
+
+        // Check if there's an open worklog (clockIn but no clockOut)
+        Worklog openWorklog = getOpenWorklog(worklogs);
+        if (openWorklog == null) {
+            holder.clockInButton.setEnabled(true);
+            holder.clockOutButton.setEnabled(false);
+        } else {
+            holder.clockInButton.setEnabled(false);
+            holder.clockOutButton.setEnabled(true);
         }
-        holder.buttonClockIn.setEnabled(!hasActiveWorklog);
-        holder.buttonClockOut.setEnabled(hasActiveWorklog);
-        Log.d(TAG, "Customer " + customer.getName() + ": hasActiveWorklog=" + hasActiveWorklog);
 
-        holder.buttonClockIn.setOnClickListener(v -> {
-            Worklog worklog = new Worklog(-1, customer.getId(), "Work started", System.currentTimeMillis(), null);
-            long newId = dbHelper.addWorklog(worklog);
-            Log.d(TAG, "Clocked in for " + customer.getName() + ", new worklog ID: " + newId);
-            holder.buttonClockIn.setEnabled(false);
-            holder.buttonClockOut.setEnabled(true);
-            Toast.makeText(context, "Clocked in for " + customer.getName(), Toast.LENGTH_SHORT).show();
+        // Clock In button logic
+        holder.clockInButton.setOnClickListener(v -> {
+            Worklog newWorklog = new Worklog(
+                    0, // ID will be set by database
+                    customer.getId(),
+                    "Mowing", // Description
+                    System.currentTimeMillis(), // clockIn
+                    null // clockOut (null until clocked out)
+            );
+            databaseHelper.addWorklog(newWorklog);
+            notifyItemChanged(position);
         });
 
-        holder.buttonClockOut.setOnClickListener(v -> {
-            ArrayList<Worklog> freshWorklogs = dbHelper.getWorklogsByCustomer(customer.getId());
-            Log.d(TAG, "Clock out attempt for " + customer.getName() + ", worklogs size: " + freshWorklogs.size());
-            for (Worklog worklog : freshWorklogs) {
-                if (worklog.getClockOut() == null) {
-                    Log.d(TAG, "Found active worklog ID: " + worklog.getId());
-                    worklog.setClockOut(System.currentTimeMillis());
-                    dbHelper.updateWorklog(worklog);
-                    holder.buttonClockIn.setEnabled(true);
-                    holder.buttonClockOut.setEnabled(false);
-                    Toast.makeText(context, "Clocked out for " + customer.getName(), Toast.LENGTH_SHORT).show();
-                    Log.d(TAG, "Clocked out for " + customer.getName());
-                    break;
-                }
+        // Clock Out button logic
+        holder.clockOutButton.setOnClickListener(v -> {
+            if (openWorklog != null) {
+                openWorklog.setClockOut(System.currentTimeMillis());
+                databaseHelper.updateWorklog(openWorklog);
+                notifyItemChanged(position);
             }
-            if (freshWorklogs.isEmpty()) {
-                Log.d(TAG, "No worklogs found for " + customer.getName());
-            }
+        });
+
+        // Make the entire row clickable to open EditCustomerActivity
+        holder.itemView.setOnClickListener(v -> {
+            Intent intent = new Intent(v.getContext(), EditCustomerActivity.class);
+            intent.putExtra("customerId", customer.getId());
+            v.getContext().startActivity(intent);
         });
     }
 
     @Override
     public int getItemCount() {
-        Log.d(TAG, "getItemCount called, size: " + (customers != null ? customers.size() : 0));
-        return customers != null ? customers.size() : 0;
+        return customerList.size();
     }
 
-    public void updateData(ArrayList<Customer> newCustomers) {
-        Log.d(TAG, "Updating data, old size: " + (customers != null ? customers.size() : 0));
-        this.customers = new ArrayList<>();
-        if (newCustomers != null) {
-            this.customers.addAll(newCustomers);
-            Log.d(TAG, "Updated data, new size: " + customers.size());
-        } else {
-            Log.d(TAG, "Updated with null, size: 0");
+    private boolean isMowedThisWeek(List<Worklog> worklogs) {
+        if (worklogs == null || worklogs.isEmpty()) return false;
+
+        Collections.sort(worklogs, new Comparator<Worklog>() {
+            @Override
+            public int compare(Worklog w1, Worklog w2) {
+                return Long.compare(w2.getClockIn(), w1.getClockIn());
+            }
+        });
+
+        long latestClockIn = worklogs.get(0).getClockIn();
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        long startOfWeek = cal.getTimeInMillis();
+
+        return latestClockIn >= startOfWeek;
+    }
+
+    private Worklog getOpenWorklog(List<Worklog> worklogs) {
+        if (worklogs == null || worklogs.isEmpty()) return null;
+        for (Worklog worklog : worklogs) {
+            if (worklog.getClockOut() == null) {
+                return worklog;
+            }
         }
-        notifyDataSetChanged();
-        Log.d(TAG, "notifyDataSetChanged called, final size: " + customers.size());
-    }
-
-    public Customer getCustomerAt(int position) {
-        return customers.get(position);
+        return null;
     }
 
     public static class CustomerViewHolder extends RecyclerView.ViewHolder {
-        public TextView textViewName;
-        public TextView textViewAddress;
-        public Button buttonClockIn;
-        public Button buttonClockOut;
+        public TextView customerNameTextView;
+        public Button clockInButton, clockOutButton;
+        public ImageView mowingStatusImageView;
 
         public CustomerViewHolder(View itemView) {
             super(itemView);
-            textViewName = itemView.findViewById(R.id.textViewName);
-            textViewAddress = itemView.findViewById(R.id.textViewAddress);
-            buttonClockIn = itemView.findViewById(R.id.buttonClockIn);
-            buttonClockOut = itemView.findViewById(R.id.buttonClockOut);
+            customerNameTextView = itemView.findViewById(R.id.customerNameTextView);
+            clockInButton = itemView.findViewById(R.id.clockInButton);
+            clockOutButton = itemView.findViewById(R.id.clockOutButton);
+            mowingStatusImageView = itemView.findViewById(R.id.mowingStatusImageView);
         }
     }
 }
-
