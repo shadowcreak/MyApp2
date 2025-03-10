@@ -58,7 +58,7 @@ public class AddCustomerActivity extends AppCompatActivity {
 
     private void setupWorklogs() {
         ArrayList<Worklog> worklogs = new ArrayList<>(); // Empty for new customers
-        worklogAdapter = new WorklogAdapter(this, worklogs);
+        worklogAdapter = new WorklogAdapter(this, worklogs, dbHelper); // Added dbHelper
         worklogsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         worklogsRecyclerView.setAdapter(worklogAdapter);
     }
